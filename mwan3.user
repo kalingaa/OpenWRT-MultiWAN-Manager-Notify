@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+# This file is interpreted as shell script.
+# Put your custom mwan3 action here, they will
+# be executed with each netifd hotplug interface event
+# on interfaces for which mwan3 is enabled.
+#
+# There are three main environment variables that are passed to this script.
+#
+# $ACTION
+#      <ifup>         Is called by netifd and mwan3track.
+#      <ifdown>       Is called by netifd and mwan3track.
+#      <connected>    Is only called by mwan3track if tracking was successful.
+#      <disconnected> Is only called by mwan3track if tracking has failed.
+# $INTERFACE	Name of the interface an action relates to (e.g. "wan" or "wwan").
+# $DEVICE	Physical device name of the interface the action relates to (e.g. "eth0" or "wwan0").
+#               Note: On an ifdown event, $DEVICE is not available, use $INTERFACE instead.
+#
+# Further documentation can be found here:
+# https://openwrt.org/docs/guide-user/network/wan/multiwan/mwan3#alertsnotifications
+# Sendgrid Help on using curl
+# https://docs.sendgrid.com/for-developers/sending-email/curl-examples
+
+# check if any actions are taken place 
+if [ "${ACTION}" = "disonnected" ] || [ "${ACTION}" = "connected" ] || [ "${ACTION}" = "ifup" ] || [ "${ACTION}" = "ifdown" ]  ; then 
+
+RNAME=""
+#set menigfull names for the wan connection, update/add remove them to fit your configuration 
+
+case "${INTERFACE}" in
+    "WAN1")
+        RNAME="SLT 1"
+        ;;
+    "WAN2")
+        RNAME="SLT 2"
+        ;;
+    "WAN3")
+        RNAME="DIALOG"
+        ;;
+esac
+
+# sendgrid email infomation / update them as needed 
+
+# show the email subject as eg: disonnected SLT 1
+SUBJECT="${ACTION} ${RNAME}"
+EMAIL_TO="toemail@todomain.com"
+FROM_EMAIL="fromemail@fromdomain.com"
+FROM_NAME="Home Firewall"
+# show on the email as eg: disonnected WAN1 eth2 SLT 1 on the email body
+MESSAGE="${ACTION} ${INTERFACE} ${DEVICE} ${RNAME}"
+
+REQUEST_DATA='{"personalizations": [{ 
+                   "to": [{ "email": "'"$EMAIL_TO"'" }],
+                   "subject": "'"$SUBJECT"'" 
+                }],
+                "from": {
+                    "email": "'"$FROM_EMAIL"'",
+                    "name": "'"$FROM_NAME"'" 
+                },
+                "content": [{
+                    "type": "text/plain",
+                    "value": "'"$MESSAGE"'"
+                }]
+}';
+#add and update your sendgroid api key here
+curl -X "POST" "https://api.sendgrid.com/v3/mail/send" \
+    -H "Authorization: Bearer API_KEY_HERE" \
+    -H "Content-Type: application/json" \
+    -d "$REQUEST_DATA"
+
+fi
